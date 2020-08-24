@@ -3,8 +3,14 @@ package com.gaura.sketch
 import android.Manifest
 import android.app.Activity
 import android.app.Dialog
+import android.app.ProgressDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.media.MediaScannerConnection
+import android.os.AsyncTask
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.MediaStore
@@ -16,6 +22,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.get
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.dailog_brush_size.*
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,7 +34,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        drawing_view.setSizeForBrush(20.toFloat())
+        drawing_view.setSizeForBrush(10.toFloat())
         ib_brush.setOnClickListener { showBrushDialog() }
 
         mImageButtonCurrentPaint = ll_paint_colors[1] as ImageButton
@@ -50,6 +59,14 @@ class MainActivity : AppCompatActivity() {
 
         ib_undo.setOnClickListener {
             drawing_view.onClickUndo()
+        }
+
+        ib_save.setOnClickListener {
+            if (isReadStorageAllowed()) {
+                BitmapAsyncTask(getBitmapFromView(fl_drawing_view_container)).execute()
+            } else {
+                requestStoragePermission()
+            }
         }
     }
 
@@ -157,15 +174,15 @@ class MainActivity : AppCompatActivity() {
         dialog.setContentView(R.layout.dailog_brush_size)
         dialog.setTitle("Brush size: ")
         dialog.ib_small_brush.setOnClickListener {
-            drawing_view.setSizeForBrush(10.toFloat())
+            drawing_view.setSizeForBrush(5.toFloat())
             dialog.dismiss()
         }
         dialog.ib_medium_brush.setOnClickListener {
-            drawing_view.setSizeForBrush(20.toFloat())
+            drawing_view.setSizeForBrush(10.toFloat())
             dialog.dismiss()
         }
         dialog.ib_large_brush.setOnClickListener {
-            drawing_view.setSizeForBrush(30.toFloat())
+            drawing_view.setSizeForBrush(15.toFloat())
             dialog.dismiss()
         }
         dialog.show()
@@ -193,4 +210,106 @@ class MainActivity : AppCompatActivity() {
             mImageButtonCurrentPaint = view
         }
     }
+
+    fun getBitmapFromView(view: View): Bitmap {
+        val returnedBitmap =
+            Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(returnedBitmap)
+        val bgDrawable = view.background
+        if (bgDrawable != null) {
+            bgDrawable.draw(canvas)
+        } else {
+            canvas.drawColor(Color.WHITE)
+        }
+        view.draw(canvas)
+
+        return returnedBitmap
+    }
+
+    private inner class BitmapAsyncTask(val mBitmap: Bitmap?) :
+        AsyncTask<Any, Void, String>() {
+
+        @Suppress("DEPRECATION")
+        private lateinit var mDialog: Dialog
+
+        override fun onPreExecute() {
+            super.onPreExecute()
+            showProgressDialog()
+        }
+
+        override fun doInBackground(vararg params: Any): String {
+
+            var result = ""
+            if (mBitmap != null) {
+                try {
+                    val bytes = ByteArrayOutputStream()
+                    mBitmap.compress(Bitmap.CompressFormat.PNG, 90, bytes)
+                    val f = File(
+                        externalCacheDir!!.absoluteFile.toString()
+                                + File.separator + "SketchApp_" + System.currentTimeMillis() / 1000 + ".png"
+                    )
+                    val fo = FileOutputStream(f)
+                    fo.write(bytes.toByteArray())
+                    fo.close()
+                    result = f.absolutePath
+                } catch (e: Exception) {
+                    result = ""
+                    e.printStackTrace()
+                }
+            }
+            return result
+        }
+
+        override fun onPostExecute(result: String) {
+            super.onPostExecute(result)
+            cancelProgressDialog()
+            if (!result.isEmpty()) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "File saved successfully :$result",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Something went wrong while saving the file.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            /*MediaScannerConnection provides a way for applications to pass a
+            newly created or downloaded media file to the media scanner service.
+            The media scanner service will read metadata from the file and add
+            the file to the media content provider.
+            The MediaScannerConnectionClient provides an interface for the
+            media scanner service to return the Uri for a newly scanned file
+            to the client of the MediaScannerConnection class.*/
+
+            /*scanFile is used to scan the file when the connection is established with MediaScanner.*/
+            MediaScannerConnection.scanFile(
+                this@MainActivity, arrayOf(result), null
+            ) { path, uri ->
+                // This is used for sharing the image after it has being stored in the storage.
+                val shareIntent = Intent()
+                shareIntent.action = Intent.ACTION_SEND
+                // A content: URI holding a stream of data associated with the Intent, used to supply the data being sent.
+                shareIntent.putExtra(Intent.EXTRA_STREAM, uri)
+                // The MIME type of the data being handled by this intent.
+                shareIntent.type = "image/png"
+                startActivity(Intent.createChooser(shareIntent, "Share"))
+            }
+        }
+
+        private fun showProgressDialog() {
+            mDialog = Dialog(this@MainActivity)
+            mDialog.setContentView(R.layout.dialog_custom_progress)
+            mDialog.show()
+        }
+
+        private fun cancelProgressDialog() {
+            mDialog.dismiss()
+        }
+    }
+
+
 }
