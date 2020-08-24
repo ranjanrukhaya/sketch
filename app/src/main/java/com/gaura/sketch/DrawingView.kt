@@ -17,6 +17,7 @@ class DrawingView(context: Context, attributeSet: AttributeSet) : View(context, 
     private var color = Color.BLACK
     private var canvas: Canvas? = null
     private var mPaths = ArrayList<CustomPath>()
+    private val mUndoPaths = ArrayList<CustomPath>()
 
 
     init {
@@ -104,6 +105,13 @@ class DrawingView(context: Context, attributeSet: AttributeSet) : View(context, 
     fun setColor(colorTag: String) {
         color = Color.parseColor(colorTag)
         mDrawPaint!!.color = color
+    }
+
+    fun onClickUndo() {
+        if (mPaths.size > 0) {
+            mUndoPaths.add(mPaths.removeAt(mPaths.size - 1))
+            invalidate() // Invalidate the whole view. If the view is visible
+        }
     }
 
 }
