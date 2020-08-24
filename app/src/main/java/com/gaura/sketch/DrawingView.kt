@@ -46,7 +46,7 @@ class DrawingView(context: Context, attributeSet: AttributeSet) : View(context, 
         super.onDraw(canvas)
         canvas.drawBitmap(mCanvasBitmap!!, 0f, 0f, mCanvasPaint)
 
-        for(path in mPaths) {
+        for (path in mPaths) {
             mDrawPaint!!.strokeWidth = path.brushThickness
             mDrawPaint!!.color = path.color
             canvas.drawPath(path, mDrawPaint!!)
@@ -95,9 +95,15 @@ class DrawingView(context: Context, attributeSet: AttributeSet) : View(context, 
 
     }
 
-    fun setSizeForBrush(size : Float) {
-        mBrushSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, size, resources.displayMetrics)
+    fun setSizeForBrush(size: Float) {
+        mBrushSize =
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, size, resources.displayMetrics)
         mDrawPaint!!.strokeWidth = mBrushSize
+    }
+
+    fun setColor(colorTag: String) {
+        color = Color.parseColor(colorTag)
+        mDrawPaint!!.color = color
     }
 
 }
